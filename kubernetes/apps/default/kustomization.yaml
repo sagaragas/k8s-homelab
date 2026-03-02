@@ -11,7 +11,6 @@ resources:
   - ./cluster-maintenance/ks.yaml
   - ./media-storage/ks.yaml
   - ./apprise/ks.yaml
-  - ./echo/ks.yaml
   - ./homepage/ks.yaml
   - ./huntarr/ks.yaml
   - ./mkdocs/ks.yaml
