@@ -90,6 +90,10 @@ spec:
             ingress:
               - hostname: "request.ragas.sh"
                 service: http://overseerr.default.svc.cluster.local:5055
+              - hostname: "www.ragas.sh"
+                service: http://portfolio.default.svc.cluster.local:80
+              - hostname: "ragas.sh"
+                service: http://portfolio.default.svc.cluster.local:80
               - hostname: "*.ragas.sh"
                 service: http://envoy-external.{{ .Release.Namespace }}.svc.cluster.local:80
               - service: http_status:404
