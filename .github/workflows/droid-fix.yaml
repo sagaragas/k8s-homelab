@@ -38,15 +38,17 @@ jobs:
       - name: Fetch CI failure logs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
         run: |
-          gh run view ${{ github.event.workflow_run.id }} --log-failed > ci-failure.log 2>&1 || true
+          gh run view "$RUN_ID" --log-failed > ci-failure.log 2>&1 || true
 
       - name: Auto-fix CI failures
         env:
           FACTORY_API_KEY: ${{ secrets.FACTORY_API_KEY }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
-          cat > prompt.txt << 'EOF'
+          cat > prompt.txt << EOF
           You are an automated CI fixer for a Kubernetes/GitOps homelab repository.
 
           The CI workflow failed. Analyze the failure and fix it.
@@ -70,7 +72,7 @@ jobs:
 
           Co-authored-by: factory-droid[bot] <138933559+factory-droid[bot]@users.noreply.github.com>"
 
-          Push to: ${{ github.event.workflow_run.head_branch }}
+          Push to: $HEAD_BRANCH
 
           Only make minimal changes to fix the CI failure. Do not refactor or improve code.
           EOF

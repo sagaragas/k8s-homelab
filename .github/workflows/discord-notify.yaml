@@ -40,15 +40,19 @@ jobs:
       - name: Send Discord notification
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          COMMIT_MSG: ${{ steps.commit.outputs.message }}
+          COMMIT_VERSIONS: ${{ steps.commit.outputs.versions }}
+          COMMIT_CHANGED: ${{ steps.commit.outputs.changed }}
+          REPO_NAME: ${{ github.repository }}
         run: |
           # Color based on commit type
-          if [[ "${{ steps.commit.outputs.message }}" == *"chore(deps)"* ]]; then
+          if [[ "$COMMIT_MSG" == *"chore(deps)"* ]]; then
             COLOR=3447003  # Blue for dependency updates
             TITLE="📦 Dependency Update"
-          elif [[ "${{ steps.commit.outputs.message }}" == *"feat"* ]]; then
+          elif [[ "$COMMIT_MSG" == *"feat"* ]]; then
             COLOR=3066993  # Green for features
             TITLE="✨ New Feature"
-          elif [[ "${{ steps.commit.outputs.message }}" == *"fix"* ]]; then
+          elif [[ "$COMMIT_MSG" == *"fix"* ]]; then
             COLOR=15158332  # Red for fixes
             TITLE="🔧 Bug Fix"
           else
@@ -56,32 +60,21 @@ jobs:
             TITLE="📝 Update"
           fi
 
-          # Build description
-          DESC="${{ steps.commit.outputs.message }}"
-          if [[ -n "${{ steps.commit.outputs.versions }}" ]]; then
-            DESC="$DESC\n\n**Version changes:**\n\`\`\`${{ steps.commit.outputs.versions }}\`\`\`"
+          DESC="$COMMIT_MSG"
+          if [[ -n "$COMMIT_VERSIONS" ]]; then
+            DESC="$DESC\n\n**Version changes:**\n\`\`\`$COMMIT_VERSIONS\`\`\`"
           fi
 
-          curl -H "Content-Type: application/json" \
-            -d "{
-              \"embeds\": [{
-                \"title\": \"$TITLE\",
-                \"description\": \"$DESC\",
-                \"color\": $COLOR,
-                \"fields\": [
-                  {
-                    \"name\": \"Files Changed\",
-                    \"value\": \"\`${{ steps.commit.outputs.changed }}\`\",
-                    \"inline\": false
-                  }
-                ],
-                \"footer\": {
-                  \"text\": \"${{ github.repository }}\"
-                },
-                \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
-              }]
-            }" \
-            "$DISCORD_WEBHOOK"
+          PAYLOAD=$(jq -n \
+            --arg title "$TITLE" \
+            --arg desc "$DESC" \
+            --argjson color "$COLOR" \
+            --arg changed "$COMMIT_CHANGED" \
+            --arg repo "$REPO_NAME" \
+            --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{embeds: [{title: $title, description: $desc, color: $color, fields: [{name: "Files Changed", value: ("`" + $changed + "`"), inline: false}], footer: {text: $repo}, timestamp: $ts}]}')
+
+          curl -s -H "Content-Type: application/json" -d "$PAYLOAD" "$DISCORD_WEBHOOK"
 
   notify-pr:
     name: Notify on PR
@@ -91,29 +84,33 @@ jobs:
       - name: Send Discord notification
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          PR_ACTION: ${{ github.event.action }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_MERGED: ${{ github.event.pull_request.merged }}
+          PR_MERGED_BY: ${{ github.event.pull_request.merged_by.login }}
+          REPO_NAME: ${{ github.repository }}
         run: |
-          if [[ "${{ github.event.action }}" == "opened" ]]; then
+          if [[ "$PR_ACTION" == "opened" ]]; then
             COLOR=16776960  # Yellow
-            TITLE="🔔 New PR: ${{ github.event.pull_request.title }}"
-            DESC="**Author:** ${{ github.event.pull_request.user.login }}\n**Branch:** \`${{ github.event.pull_request.head.ref }}\`\n\n[View PR](${{ github.event.pull_request.html_url }})"
-          elif [[ "${{ github.event.action }}" == "closed" && "${{ github.event.pull_request.merged }}" == "true" ]]; then
+            TITLE="🔔 New PR: $PR_TITLE"
+            DESC="**Author:** $PR_AUTHOR\n**Branch:** \`$PR_BRANCH\`\n\n[View PR]($PR_URL)"
+          elif [[ "$PR_ACTION" == "closed" && "$PR_MERGED" == "true" ]]; then
             COLOR=3066993  # Green
-            TITLE="✅ PR Merged: ${{ github.event.pull_request.title }}"
-            DESC="Merged by **${{ github.event.pull_request.merged_by.login }}**\n\n[View PR](${{ github.event.pull_request.html_url }})"
+            TITLE="✅ PR Merged: $PR_TITLE"
+            DESC="Merged by **$PR_MERGED_BY**\n\n[View PR]($PR_URL)"
           else
             exit 0  # Don't notify on closed without merge
           fi
 
-          curl -H "Content-Type: application/json" \
-            -d "{
-              \"embeds\": [{
-                \"title\": \"$TITLE\",
-                \"description\": \"$DESC\",
-                \"color\": $COLOR,
-                \"footer\": {
-                  \"text\": \"${{ github.repository }}\"
-                },
-                \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
-              }]
-            }" \
-            "$DISCORD_WEBHOOK"
+          PAYLOAD=$(jq -n \
+            --arg title "$TITLE" \
+            --arg desc "$DESC" \
+            --argjson color "$COLOR" \
+            --arg repo "$REPO_NAME" \
+            --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            '{embeds: [{title: $title, description: $desc, color: $color, footer: {text: $repo}, timestamp: $ts}]}')
+
+          curl -s -H "Content-Type: application/json" -d "$PAYLOAD" "$DISCORD_WEBHOOK"
