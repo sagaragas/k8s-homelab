@@ -1,8 +1,25 @@
 ---
+# Optimus Route Contract: HTTPRoute for External-LXC Backend
+# =========================================================
+# Routes optimus.ragas.cc to the external-LXC Optimus service.
+#
+# Route path:
+#   DNS (optimus.ragas.cc) → envoy-internal Gateway → this HTTPRoute → Service:optimus:8080
+#
+# The Service has no selector; it uses manually-defined Endpoints pointing to
+# 172.16.1.9:8080 (the ansible LXC container). This is intentional - Optimus
+# runs outside the cluster as an external service.
+#
+# Gateway: envoy-internal (namespace: network)
+# Expected status: Accepted=True, ResolvedRefs=True
+---
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
   name: optimus
+  labels:
+    app.kubernetes.io/name: optimus
+    app.kubernetes.io/component: route
 spec:
   parentRefs:
     - name: envoy-internal

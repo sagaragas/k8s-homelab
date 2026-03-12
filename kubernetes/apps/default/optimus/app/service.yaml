@@ -1,21 +1,50 @@
 ---
-# External service pointing to Optimus API on ansible LXC (172.16.1.9:8080)
-# Serves both the REST API and the React frontend static files
+# Optimus Route Contract: External-LXC Backend
+# ============================================
+# This service points to an external LXC container (ansible/ct-104) running
+# on Proxmox host pve4. It is NOT a Kubernetes Deployment.
+#
+# Architecture:
+#   optimus.ragas.cc → envoy-internal gateway → this Service → Endpoints → 172.16.1.9:8080 (LXC)
+#
+# The Optimus application (FastAPI backend + React frontend) runs directly on
+# the ansible LXC container (vmid 104) at 172.16.1.9. The container provides:
+#   - REST API on /api/*
+#   - WebSocket events on /ws and /api/events/stream
+#   - Static frontend files at /
+#
+# Flux ownership: kustomize.toolkit.fluxcd.io/name=optimus
+# See also: httproute.yaml for the Gateway API routing configuration
+---
 apiVersion: v1
 kind: Service
 metadata:
   name: optimus
+  labels:
+    app.kubernetes.io/name: optimus
+    app.kubernetes.io/component: api
+    app.kubernetes.io/part-of: optimus-platform
 spec:
+  type: ClusterIP
   ports:
-    - port: 8080
+    - name: http
+      port: 8080
       targetPort: 8080
+      protocol: TCP
 ---
 apiVersion: v1
 kind: Endpoints
 metadata:
   name: optimus
+  labels:
+    app.kubernetes.io/name: optimus
+    app.kubernetes.io/component: api
 subsets:
   - addresses:
+      # External LXC backend: ansible (vmid 104) on pve4
+      # This IP must match the authoritative inventory entry for compute:lxc:ansible
       - ip: 172.16.1.9
     ports:
-      - port: 8080
+      - name: http
+        port: 8080
+        protocol: TCP
