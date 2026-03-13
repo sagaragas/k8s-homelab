@@ -50,7 +50,7 @@ jobs:
 
       - name: Add comment
         if: ${{ steps.diff.outputs.diff != '' }}
-        uses: mshick/add-pr-comment@v2
+        uses: mshick/add-pr-comment@v3
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           message-id: flux-diff-${{ matrix.resource }}
